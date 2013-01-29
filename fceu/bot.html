@@ -1,0 +1,107 @@
+<html>
+<head>
+<title>Luke's FCEU modification</title></head>
+<body>
+<p><font size="5">BasicBot</font>
+
+<p>BasicBot is a fairly flexible bot tool I've stuck into FCEU.  It can evaluate formulas, and so simple programs can be written for it.  It uses a very strong random number generator, so it's very unlikely it will miss any possibilities if you let it run long enough.
+
+<P>You'll need to hack the game a bit to write a bot.  The only way BasicBot can access the game is through the memory.  So, you'll want to know the important RAM addresses before you try to write a useful bot.
+
+<P>BasicBot is compatible with movie recording.
+
+<P><font size="5">Getting started</font>
+
+<p>First, load your ROM, and make a savestate where you want the bot input to begin.  The bot will use the current savestate as its beginning point.
+
+<P>Check the Tools...Enable External Input option.  This will disable your input, and FCEU will watch for bot input instead.
+
+<P>Now open up BasicBot, Tools...BasicBot.
+
+<P><img src="1.png">
+
+<P>The upper-left section is the formulas for determining the input.  A value of 0 means the button won't be pressed, 1000 means it will be pressed, 500 means it has a 50/50 chance, etc.  You can give each button its own probability formula for being pressed.  Only one player is shown at a time, click the button to edit the other player.
+
+<P>The "Goal" section tells BasicBot where to stop, and how to score the results.  The "End When" field is the formula for determining when to end.  Each frame, it evaluates the formula, and then decides whether to end based on the value of the formula.  If you use 0, BasicBot won't stop.  If you use 1000, BasicBot won't generate any input.  If you use 500, there is a 50/50 chance each frame the input will stop, etc.  The default formula is "frame=1", which evaluates to 1000 when the 1st frame of input is generated.  In other words, input ends after 1 frame.
+
+<P>The "Maximize" and "Tiebreak" fields are formulas telling BasicBot how to score the result.  After ending input, BasicBot will calculate each of these formulas.  The "Maximize" field is the most important; it is the score BasicBot assigns to the input.  BasicBot will try to maximize this score.  If two inputs tie for their "Maximize" score, then the Tiebreak 1 is used.  If they're still tied, Tiebreak 2 is used.  Etc.  Hint: If you want to minimize something instead of maximizing, just take the negative.
+
+<P>The "Extra commands" section is for bots that require extra programming.  They are run after input is generated, but before the Goal formula is evaluated.  There are 2 sections, because there is a 1024-character limit.
+
+<P>The "Results" section tells you the best input BasicBot has found, and what its score is.
+
+<P>The "Run!" button makes BasicBot start running.  Click it again to stop.
+
+<P>The "Play Best" button enters the best input (which you can see in the Results section).  So after you're done running BasicBot, you'll probably want to click this button.
+
+<P>The "Clear" button resets all fields to their defaults.  "Load" and "Save" save the bot as a .bot file.  (When you close BasicBot, the formulas are still saved.  But when you close FCEU, they are lost.)
+
+<P>Here's an example of an <a href="excitebike.bot">Excitebike bot</a>.
+
+<P><img src="2.png">
+
+<P>This bot uses several formulas.  For the B button, the formula is "ram(x4C)=3".  This evaluates to 1000 (i.e. guarantees that B will be pressed) when the RAM at 4C is 3.  It is 0 otherwise.  Note: the "x" means hexadecimal.
+
+<P>The functions for Left and Right are a little more complicated.  They also look at RAM 4C, but in addition, they look at RAM B0.  B0 stores whether your bike is in the air.
+
+<P>For Up and Down, we just use the simple formulas "20".  This gives a 2%=1/50 chance they will be pressed each frame.
+
+<P>The function for input end is "frame=200".  This means the bot generates 200 frames of input.
+
+<P>The maximize function is "counter(0)".  There are 256 counters available for you to use for keeping track of whatever you need to.  In this case, counter(0) is going to keep track of how far our bike has traveled.
+
+<P>In the extra functions, we look at RAM 94 and 90 (which hold our speed) and add that to counter(0).  Excitebike uses RAM 94 and 90 to determine how many pixels you'll move each frame, so adding these up every frame gives exactly how far our bike will travel.
+
+<P>In the results section, you can see that BasicBot found a sequence of input that scored 155302 in its 199th attempt.  It also shows BasicBot has made 259 attempts and emulated 52000 frames.
+
+<P> <font size="5">Reference</font>
+
+<P> The formula evaluator is very simple.  It doesn't respect order of operations, so you'll want to use lots of parentheses.  The order of operations is actually right-to-left within each segment (where segment is stuff betwee parentheses, etc.)  All math is integer math.  If the evaluator encounters something it doesn't understand, it just skips over it.  Everything is case sensitive: everything but hex numbers need to be lowercase.  There is a 1024 character limit on each formula.
+
+<P> All the usual math operators are supported: + add, - subtract, * multiply, / divide, % mod, & bit and, | bit or, ^ bit xor.  The if-then-else ?: operator is also supported.  It works like this: (formula)?(execute if non-zero):(execute if zero).  Recently added is the "abs(X)" function, which returns the absolute value of X.
+
+<P> Comparison operators return 1000 if true and 0 if false.  The operators are = equals, &gt= greater than or equal, &lt= less than or equal, &gt greater than, &lt less than, != not equal.
+
+<P> Use a prefix of "x" (must be lowercase) for hex numbers.  Hex numbers must be entered in uppercase.
+
+<P>Example formulas:
+<pre>
+2*3+1 = 8     1+0?5:10 = 11   (1+0)?5:10 = 5    -1+1 = -2    (-1)+1 = 0
+1<2 = 1000    x60=6*16 = 1000      6*16=x60 = 0       (6*16)=x60 = 1000
+1/4 = 0       (1/4)*1000 = 0       17%6 = 5     9&10 = 8      9|10 = 11
+1][31]4BLAH0 = 13140
+</pre>
+
+<P>BasicBot gives you access to several variables:  "attempt" is the number of the attempt BasicBot is currently on.  This is very useful if you want to systematically try all possibilities, or if you want to vary the behavior of the bot between attempts.  "frame" is the frame within this attempt BasicBot is currently on.  "ram(X)" will give you the value of the RAM at X, where X is a formula.  This function is obsoleted by a new function, "mem(X)", which can access any memory location 0-65535.
+
+<P>"button" gives you access to the buttons currently pressed:  the way it works is actually ANDing the current value with the button presses.  BasicBot has these constants for the buttons: "a", "b", "start", "select", "up", "down", "left", "right".  To test if the start button is pressed, you could write "startbutton > 0" or "startbutton = start".  To test if the A or B button is pressed, you could write "(a+b)button > 0".  To test if A and B are both pressed, you could write "(a+b)button = (a+b)".  To test player 2, you have to multiply by 256.  For example, "(a*256)button" will give player 2's A button status.
+
+<P>Note that the button presses are cleared when BasicBot starts the frame.  It generates the button presses from the formulas, top to bottom.  So, if you enter "bbutton" in the A button field, you'll always get the value of 0, since the B button isn't calculated until after the A button!
+
+<P>There are 256 counters available for you to store whatever information you want.  The counters are all reset to 0 when BasicBot starts a new attempt.  To access the value of the counter, use "counter(X)" where X is an expression.  Or, abbreviate it as "c(X)".  To reset the value to 0, use "resetcounter(X)", or simply "rc(X)".  To add to a counter, use "Y addcounter(X)" where Y is the value to add, and X is the counter to add to.  Or to abbreviate, "Y ac(X)".  Addcounter returns the new value of the counter.  To simply set the value, use "Y setcounter(X)" or "Y sc(X)".
+
+<P>There is simple loop support.  You may not nest loops.  The syntax is: "Y loop(X)" where Y is the number of iterations, and X is the expression to evaluate.  Y is capped at 65536.  You can access the index of the loop by using "i".  "i" begins at 0 and increases up to Y-1.
+
+<P>You can have several statements in one formula.  The value of the last statement will be the value of the formula.
+
+<P>Some more examples:
+<pre>
+(1+1) (2+2) (3+3)                   = 6
+10 loop(i addcounter(0)) counter(0) = 45
+counter(1) resetcounter(0)          = 0
+</pre>
+
+<P><font size="5">Advanced example</font>
+
+<P>Here's an advanced example. In Deadly Towers, the enemy drops are written to memory 542-555 (actually I'm not sure about the endpoints :).   A value of 5 means a 5-ludder coin has dropped.  If we want to count how many of these coins have dropped, we could use this loop:
+<pre>
+rc(0) 20 loop((5=ram(x542+i))?1 ac(0):0)
+</pre>
+Then counter(0) will hold the number of 5-ludder coins on the screen.
+
+<P>Another advanced example:  Suppose you want to try every possible input over 1 frame.  You could enter <pre>attempt & a > 0</pre> for A, <pre>attempt & b > 0</pre> for B, etc.  Obivously, use "frame = 1" for your stop condition.  That's a bit more efficient than entering "500" for each button and hoping BasicBot eventually tries everything.
+
+<P>If you wanted to try every possible input over 2 frames (that's 65536 possibilities!), you could enter <pre>((frame=1)?attempt&255:attempt/256) & a > 0</pre> for A, etc.
+
+</body>
+</html>
